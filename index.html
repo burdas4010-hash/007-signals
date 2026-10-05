@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>007 Signals</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+body{background:#0D0F12;color:#e8e6df;font-family:Montserrat,Inter,system-ui,sans-serif}
+.glass{background:rgba(255,255,255,.04);backdrop-filter:blur(10px);border:1px solid #D4AF37;border-radius:14px}
+.gold{color:#D4AF37}.btn{background:#D4AF37;color:#0D0F12;font-weight:800;padding:.8rem 1.4rem;border-radius:10px}
+.btn:hover{filter:brightness(1.1)}.ghost{border:1px solid #D4AF3788;padding:.4rem .9rem;border-radius:8px}
+.on{background:#D4AF37;color:#0D0F12}
+.call{color:#00FF66;border-color:#00FF66}.put{color:#FF3366;border-color:#FF3366}
+:focus-visible{outline:2px solid #D4AF37;outline-offset:2px}
+</style></head>
+<body class="min-h-screen">
+<main id="app" class="max-w-6xl mx-auto px-4 py-8"></main>
+<script>
+const LINKS = { Global: 'https://u3.shortink.io/smart/apSpOAUQKSaiLW', 'CIS / RU': 'https://u3.shortink.io/smart/apSpOAUQKSaiLW' };
+const $ = s => document.querySelector(s), app = $('#app');
+const S = { uid: localStorage.uid || '', region: 'Global', cat: 'all', favs: JSON.parse(localStorage.favs || '[]'), assets: [], tf: {}, timers: [] };
+const api = (u, o) => fetch(u, o).then(r => r.ok ? r.json() : Promise.reject(r.status));
+const clear = () => { S.timers.forEach(clearInterval); S.timers = []; };
+
+function head() { return `<header class="flex items-center justify-between mb-10"><div class="text-xl font-extrabold tracking-wide">007 <span class="gold">Signals</span></div></header>`; }
+const RISK = `<p class="text-xs text-white/50 mt-10 max-w-3xl">Risk warning: trading binary and digital options carries a high risk of losing your entire deposit. Signals are indicator readings, not predictions or guarantees, and past results do not indicate future results. Check that these products are legal where you live. 18+ only.</p>`;
+
+function landing() {
+  clear();
+  app.innerHTML = head() + `<section class="py-16"><h1 class="text-4xl md:text-6xl font-extrabold leading-tight max-w-3xl">007 SIGNALS — ELITE HIGH-WINRATE SIGNALS FOR POCKET OPTION</h1>
+  <p class="mt-5 text-lg text-white/70 max-w-xl">Automated real-time technical analysis for forex, OTC pairs, and crypto.</p>
+  <button id="go" class="btn mt-8">UNLOCK VIP ACCESS NOW</button></section>` + RISK;
+  $('#go').onclick = gate;
+}
+
+function gate() {
+  clear();
+  app.innerHTML = head() + `<section class="glass p-6 md:p-8 max-w-2xl">
+  <h2 class="text-2xl font-extrabold mb-4">Unlock VIP access</h2>
+  <ol class="list-decimal pl-5 space-y-1 text-white/80 mb-5">
+    <li>Register an account using our official 007 VIP links below.</li>
+    <li>Make a minimum deposit to activate your account.</li>
+    <li>Copy your Pocket Option Trader UID and enter it below.</li></ol>
+  <div class="flex gap-2 mb-3" id="reg">${Object.keys(LINKS).map(k => `<button data-r="${k}" class="ghost ${k === S.region ? 'on' : ''}">${k}</button>`).join('')}</div>
+  <a id="lnk" target="_blank" rel="noopener" class="btn inline-block mb-6">Register on Pocket Option</a>
+  <label class="block text-sm mb-1" for="uid">Pocket Option UID</label>
+  <input id="uid" inputmode="numeric" value="${S.uid}" placeholder="Enter your Pocket Option UID (e.g., 84729105)" class="w-full bg-black/40 border border-white/20 rounded-lg px-4 py-3 mb-3">
+  <button id="ver" class="btn w-full">Verify UID &amp; Unlock Signals</button>
+  <p id="msg" class="mt-4 min-h-6" aria-live="polite"></p></section>` + RISK;
+  const setLink = () => $('#lnk').href = LINKS[S.region]; setLink();
+  $('#reg').onclick = e => { const r = e.target.dataset.r; if (!r) return; S.region = r; setLink();
+    document.querySelectorAll('#reg button').forEach(b => b.classList.toggle('on', b.dataset.r === r)); };
+  let poll;
+  const check = async () => {
+    const uid = $('#uid').value.trim(); if (!/^\d{4,12}$/.test(uid)) return $('#msg').textContent = 'Enter a numeric UID (4–12 digits).';
+    try {
+      const { status } = await api('/api/verify-uid', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid }) });
+      clearTimeout(poll);
+      if (status === 'approved') { S.uid = localStorage.uid = uid; return dash(); }
+      $('#msg').className = 'mt-4 ' + (status === 'pending' ? 'gold' : 'put');
+      $('#msg').textContent = status === 'pending' ? 'Checking deposit status... Please wait or top up your account.'
+        : 'UID not found under 007 referral link. Please register via the link above.';
+      if (status === 'pending') poll = setTimeout(check, 8000);
+    } catch { $('#msg').textContent = 'Connection problem. Try again.'; }
+  };
+  $('#ver').onclick = check;
+}
+
+async function dash() {
+  clear();
+  try { S.assets = await api('/api/assets?uid=' + S.uid); } catch { delete localStorage.uid; S.uid = ''; return gate(); }
+  app.innerHTML = head() + `<div class="flex flex-wrap gap-2 mb-6" id="tabs"></div><div id="grid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+  <p class="text-xs text-white/50 mt-6">Agreement = share of RSI, MACD and EMA readings pointing the same way. It is not a win rate.</p>` + RISK;
+  const tabs = [['all','All Assets'],['forex','Forex'],['crypto','Crypto'],['vol','High Volatility'],['fav','Favorites']];
+  const draw = () => {
+    $('#tabs').innerHTML = tabs.map(([k, l]) => `<button data-k="${k}" class="ghost ${S.cat === k ? 'on' : ''}">${l}</button>`).join('');
+    const list = S.assets.filter(a => S.cat === 'all' || (S.cat === 'vol' ? a.vol : S.cat === 'fav' ? S.favs.includes(a.id) : S.cat === 'forex' ? a.cat !== 'crypto' : a.cat === S.cat));
+    $('#grid').innerHTML = list.length ? list.map(card).join('') : '<p class="text-white/60">Nothing here yet. Star an asset to add it to Favorites.</p>';
+    list.forEach(a => load(a.id));
+  };
+  $('#tabs').onclick = e => { if (e.target.dataset.k) { S.cat = e.target.dataset.k; draw(); } };
+  $('#grid').onclick = e => {
+    const t = e.target, id = t.closest('[data-id]')?.dataset.id;
+    if (t.dataset.tf) { S.tf[id] = +t.dataset.tf; draw(); }
+    if (t.dataset.fav) { S.favs = S.favs.includes(id) ? S.favs.filter(x => x !== id) : [...S.favs, id]; localStorage.favs = JSON.stringify(S.favs); draw(); }
+  };
+  draw();
+  S.timers.push(setInterval(() => S.assets.forEach(a => document.getElementById('c-' + CSS.escape(a.id)) && load(a.id)), 15000));
+  S.timers.push(setInterval(tick, 1000));
+}
+const card = a => { const tf = S.tf[a.id] || 1; return `<article class="glass p-4" data-id="${a.id}" id="c-${a.id}">
+  <div class="flex justify-between items-center"><h3 class="font-extrabold">${a.name}</h3>
+  <button data-fav="1" aria-label="Toggle favorite" class="${S.favs.includes(a.id) ? 'gold' : 'text-white/40'}">★</button></div>
+  <div class="flex gap-1 my-3">${[1,2,3,5].map(m => `<button data-tf="${m}" class="ghost text-sm ${tf === m ? 'on' : ''}">${m} M</button>`).join('')}</div>
+  <div class="body text-white/50 py-6 text-center">Loading…</div>
+  <div class="h-1.5 bg-white/10 rounded mt-3"><div class="bar h-full gold bg-current rounded" style="width:0"></div></div>
+  <div class="text-xs text-white/50 mt-1 timer" data-tf="${tf}"></div></article>`; };
+async function load(id) {
+  const el = document.getElementById('c-' + CSS.escape(id)); if (!el) return;
+  const tf = S.tf[id] || 1;
+  try {
+    const s = await api(`/api/signal?uid=${S.uid}&asset=${encodeURIComponent(id)}&tf=${tf}`);
+    const cls = s.action === 'CALL' ? 'call' : s.action === 'PUT' ? 'put' : 'text-white/60 border-white/30';
+    el.querySelector('.body').className = 'body';
+    el.querySelector('.body').innerHTML = `<div class="border-2 ${cls} rounded-xl text-center text-2xl font-extrabold py-3">${s.action === 'CALL' ? 'CALL (BUY)' : s.action === 'PUT' ? 'PUT (SELL)' : 'WAIT'}</div>
+    <div class="flex justify-between mt-3 text-sm"><span>Indicator agreement</span><b>${s.agreement}%</b></div>
+    <div class="text-xs text-white/70 mt-2 space-y-0.5"><div>RSI ${s.rsi}</div><div>MACD ${s.macd}</div><div>MA ${s.ma}</div></div>`;
+  } catch { const b = el.querySelector('.body'); b.className = 'body text-white/50 py-6 text-center'; b.textContent = 'No data feed for this asset.'; }
+}
+function tick() {
+  document.querySelectorAll('.timer').forEach(t => {
+    const ms = +t.dataset.tf * 60000, left = ms - (Date.now() % ms), card = t.closest('article');
+    t.textContent = `Expires in ${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, '0')}`;
+    card.querySelector('.bar').style.width = (100 - left / ms * 100) + '%';
+  });
+}
+
+// ---------- Admin ----------
+function adminView() {
+  app.innerHTML = head() + `<div class="glass p-6 max-w-md"><label for="tk">Admin token</label>
+  <input id="tk" type="password" class="w-full bg-black/40 border border-white/20 rounded-lg px-4 py-3 my-3"><button id="in" class="btn">Sign in</button><p id="e" class="put mt-2"></p></div>`;
+  $('#in').onclick = () => adminLoad($('#tk').value);
+}
+async function adminLoad(tk) {
+  const h = { 'x-admin-token': tk, 'Content-Type': 'application/json' };
+  try {
+    const [u, p] = await Promise.all([api('/admin/api/users', { headers: h }), api('/admin/api/postbacks', { headers: h })]);
+    app.innerHTML = head() + `<div class="grid grid-cols-3 gap-3 mb-6">${[['Total users', u.stats.total], ['Verified UIDs', u.stats.approved], ['Pending', u.stats.pending]].map(([l, v]) => `<div class="glass p-4"><div class="text-white/60 text-sm">${l}</div><div class="text-3xl font-extrabold">${v}</div></div>`).join('')}</div>
+    <div class="glass p-4 overflow-x-auto mb-6"><table class="w-full text-sm"><thead class="text-left text-white/60"><tr><th>UID</th><th>Registered</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+    ${u.users.map(x => `<tr class="border-t border-white/10"><td class="py-2">${x.uid}</td><td>${x.created_at}</td><td>${x.status}</td><td class="space-x-2">
+    <button class="ghost" data-u="${x.uid}" data-s="approved">Approve</button><button class="ghost" data-u="${x.uid}" data-s="rejected">Revoke</button></td></tr>`).join('')}</tbody></table></div>
+    <h2 class="font-extrabold mb-2">Postback log</h2><pre id="log" class="glass p-4 text-xs overflow-auto max-h-80"></pre>`;
+    $('#log').textContent = p.map(l => `${l.created_at}  ${l.raw.replace(/"secret":"[^"]*"/, '"secret":"***"')}`).join('\n') || 'No postbacks yet.';
+    app.onclick = async e => { const d = e.target.dataset; if (!d.u) return;
+      await api(`/admin/api/users/${d.u}/status`, { method: 'POST', headers: h, body: JSON.stringify({ status: d.s }) }); adminLoad(tk); };
+    clearInterval(S.adm); S.adm = setInterval(() => document.getElementById('log') && adminLoad(tk), 10000);
+  } catch { const e = $('#e'); e ? e.textContent = 'Wrong token.' : 0; }
+}
+
+location.pathname.startsWith('/admin') ? adminView() : (S.uid ? dash() : landing());
+</script></body></html>
